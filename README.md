@@ -14,11 +14,12 @@ pip install -r requirements.txt
 3. 无法应对消息面，遇到消息面切记不要扛
 ## Notice
 1. 需要网络环境，v2rayN要开启Tun
-2. 有精神的可以自己换模型跑：Kronos-mini，Kronos-small，Kronos-base，Kronos-large
-3. ```Python
+2. torch之类的有些东西可能不全，遇到报错自己Gemini问一下
+3. 有精神的可以自己换模型跑：Kronos-mini，Kronos-small，Kronos-base，Kronos-large
+4. ```Python
        model = Kronos.from_pretrained("NeoQuasar/Kronos-base")
    ```
-4. 个人感觉small足够，4060跑1分钟左右
+5. 个人感觉small足够，4060跑1分钟左右
 ## 2025/9/1暂时修改
 1. 50次预测取平均值，最后的图像输出显示80%区域及平均值，类似官网Live Demo形式
 ![example](https://github.com/yaohongrui/Kronos-for-crypto/blob/main/example.png)

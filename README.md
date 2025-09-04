@@ -1,5 +1,5 @@
 # Kronos-for-crypto
-优化后的kronos，原项目见https://github.com/shiyu-coder/Kronos?tab=readme-ov-file
+优化后的kronos，原项目见(https://github.com/shiyu-coder/Kronos)
 ## 运行
 1. python3.10+
 2. 安装依赖

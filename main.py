@@ -2,32 +2,38 @@ import ccxt
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from datetime import datetime
 from model import Kronos, KronosTokenizer, KronosPredictor
+from tqdm import tqdm
+import os
 
 def fetch_and_save_ohlcv(symbol_choice, timeframe):
     """
-    从 OKX 获取指定交易对和时间段的 OHLCV 数据，
+    从 Binance 获取指定交易对和时间段的 OHLCV 数据，
     将其保存为 CSV 文件，并返回一个 DataFrame。
     """
-    exchange = ccxt.okx()
+    # 使用 Binance 交易所
+    exchange = ccxt.binance()
     
-    # 构建永续合约的交易对符号
-    symbol = f"{symbol_choice}-USDT-SWAP"
+    # 构建永续合约的交易对符号（Binance 格式）
+    # Binance 的永续合约符号是像 'BTCUSDT' 这样的，没有 -SWAP 后缀
+    symbol = f"{symbol_choice.upper()}USDT"
     
     print(f"Fetching data for {symbol} with timeframe {timeframe}...")
 
-    limit_per_call = 300
-    total_needed = 400
+    limit_per_call = 1000  # Binance 的限制通常是 1000
+    total_needed = 350
     all_ohlcv = []
     since = None
 
     while len(all_ohlcv) < total_needed:
         try:
+            # Binance 的 fetch_ohlcv 调用
             ohlcv = exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit_per_call)
         except ccxt.BaseError as e:
             print(f"Error fetching data: {e}")
-            print(f"Please check if '{symbol}' and '{timeframe}' are valid on OKX.")
+            print(f"Please check if '{symbol}' and '{timeframe}' are valid on Binance.")
             return None
 
         if not ohlcv:
@@ -46,14 +52,17 @@ def fetch_and_save_ohlcv(symbol_choice, timeframe):
     df = pd.DataFrame(final_ohlcv, columns=['timestamps', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamps'] = pd.to_datetime(df['timestamps'], unit='ms')
     
-    # 修改文件名生成逻辑以符合要求
-    file_path = f"E:\\Kronos\\data\\{symbol_choice.lower()}.csv"
+    file_path = f"./data/{symbol_choice.lower()}.csv"
+    
+    # 确保 data 目录存在
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    
     df.to_csv(file_path, index=False)
     print(f"Successfully fetched and saved {len(final_ohlcv)} candlestick data points to {file_path}")
     
     return df
 
-def run_prediction_and_plot(df, file_name):
+def run_prediction_and_plot(df, file_name, timeframe):
     """
     运行 Kronos 预测模型并绘制结果。
     """
@@ -65,28 +74,32 @@ def run_prediction_and_plot(df, file_name):
     predictor = KronosPredictor(model, tokenizer, device="cuda", max_context=512)
 
     # 3. 准备输入数据
-    # 确保时间戳是正确的 pandas datetime 类型
     df['timestamps'] = pd.to_datetime(df['timestamps']) 
 
-    lookback = 400
-    pred_len = 25
-    num_samples = 50  # 增加循环次数，以获得更稳定的统计结果
+    lookback = 350
+    pred_len = 15
+    num_samples = 50
 
-    # 提取输入数据
     x_df = df.loc[:lookback-1, ['open', 'high', 'low', 'close', 'volume']]
     x_timestamp = df.loc[:lookback-1, 'timestamps']
 
-    # 自动生成预测时间戳
     last_timestamp = x_timestamp.iloc[-1]
 
-    time_interval = pd.Timedelta(minutes=15) 
+    # 根据时间周期获取时间间隔，这里假设时间戳是按固定间隔排列的
+    if len(x_timestamp) > 1:
+        time_interval = x_timestamp.iloc[1] - x_timestamp.iloc[0]
+    else:
+        # 如果只有一个数据点，则默认一个15分钟的间隔
+        time_interval = pd.Timedelta(minutes=15)
+        
     y_timestamp = pd.Series([last_timestamp + time_interval * i for i in range(1, pred_len + 1)])
 
     # 4. 生成多次预测并存储结果
     all_predictions = []
     print(f"开始生成 {num_samples} 次预测...")
 
-    for i in range(num_samples):
+    # 使用 tqdm 包装 range(num_samples) 来显示进度条
+    for i in tqdm(range(num_samples), desc="Generating predictions"):
         pred_df = predictor.predict(
             df=x_df,
             x_timestamp=x_timestamp,
@@ -101,52 +114,76 @@ def run_prediction_and_plot(df, file_name):
 
     # 5. 对预测结果进行统计
     all_predictions_array = np.array(all_predictions)
-    # 计算每个时间点的中位数作为预测线
     median_prices = np.median(all_predictions_array, axis=0)
-    # 计算每个时间点的10%和90%分位数，即80%置信区间
     q_10 = np.percentile(all_predictions_array, 10, axis=0)
     q_90 = np.percentile(all_predictions_array, 90, axis=0)
 
     # 6. 可视化
     plt.figure(figsize=(12, 6))
-
-    # 绘制真实数据
-    plt.plot(df['timestamps'][:lookback], df['close'][:lookback], label='Previous Price', color='blue')
-
-    # 绘制预测中位数
+    history_plot_len = 150
+    
+    # 确保历史数据切片不会超出可用范围
+    start_index = max(0, lookback - history_plot_len)
+    
+    # 绘制历史价格曲线
+    plt.plot(df['timestamps'][start_index:lookback], df['close'][start_index:lookback], label='Previous Price', color='blue')
+    
+    # 绘制预测价格曲线和置信区间
     plt.plot(y_timestamp, median_prices, label='Median Forecast', color='orange', linestyle='--')
-
-    # 绘制80%置信区间
     plt.fill_between(y_timestamp, q_10, q_90, color='orange', alpha=0.3, label='80% Confidence Interval')
+
+    # 使用 AutoDateLocator 和 AutoDateFormatter 自动优化刻度
+    locator = mdates.AutoDateLocator()
+    formatter = mdates.AutoDateFormatter(locator)
+    plt.gca().xaxis.set_major_locator(locator)
+    plt.gca().xaxis.set_major_formatter(formatter)
+    
+    # 自动调整 x 轴刻度标签，防止重叠
+    plt.gcf().autofmt_xdate()
 
     plt.xlabel('Time')
     plt.ylabel('Price')
-    plt.title('Price Forecast and 80% Confidence Interval')
+    # 使用 symbol_choice 和 timeframe 更新标题
+    plt.title(f'Price Forecast for {file_name.upper()}-USDT ({timeframe})')
     plt.legend()
-    plt.grid()
+    plt.grid(True)
+    
+    # --- 新增的保存代码 ---
+    # 生成带有当前时间戳、交易对名称和时间周期的唯一文件名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # 这里我们使用 file_name (symbol_choice) 和 timeframe
+    save_path = f"./outputs/{file_name.upper()}_{timeframe}.png"
+    
+    # 确保 plots 目录存在
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    
+    try:
+        plt.savefig(save_path)
+        print(f"成功将预测图保存至: {save_path}")
+    except Exception as e:
+        print(f"保存图像时出错: {e}")
+
+    # 显示图像
     plt.show()
 
 def main():
     """
     主函数，协调数据抓取和预测任务。
     """
-    # 设置默认值
-    default_symbol = 'ETH'
+    default_symbol = 'BTC'
     default_timeframe = '15m'
 
-    # 获取用户输入，并设置默认值
     symbol_input = input(f"Enter symbol (default: {default_symbol}): ").upper()
     symbol_choice = symbol_input if symbol_input else default_symbol
     
     timeframe_input = input(f"Enter timeframe (default: {default_timeframe}): ").lower()
     timeframe = timeframe_input if timeframe_input else default_timeframe
     
-    # 1. 抓取数据
     df = fetch_and_save_ohlcv(symbol_choice, timeframe)
     
     if df is not None and not df.empty:
-        # 2. 运行预测和绘图
-        run_prediction_and_plot(df, symbol_choice.lower())
+        # 在这里，我们将 timeframe 变量传递给 run_prediction_and_plot
+        run_prediction_and_plot(df, symbol_choice.lower(), timeframe)
     else:
         print("Data fetching failed. Exiting.")
 

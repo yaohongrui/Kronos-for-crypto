@@ -1,12 +1,3 @@
-'''
-# 更新日志
-
-## 版本 2.2 (2025年12月15日)
-- 优化了 TP/SL 计算逻辑，基于预测终点的标准差，提升风险管理准确性。
-- 增加了交易方向自动判断功能，根据胜率概率决定做多或做空。
-- 改进了图表绘制，TP/SL 线现在延伸至预测时间段末尾，提升可读性。
-- 增加了当前价格水平线，作为参考点。
-'''
 import ccxt
 import pandas as pd
 import numpy as np
@@ -45,8 +36,8 @@ class Config:
     MAX_CONTEXT = 512
     
     # 策略配置 (基于标准差的倍数)
-    SL_MULTIPLIER = 2.0  # 止损 = 0.75倍标准差
-    TP_MULTIPLIER = 2.0  # 止盈 = 1倍标准差
+    SL_MULTIPLIER = 3.0  # 止损 = 3倍标准差
+    TP_MULTIPLIER = 3.0  # 止盈 = 3倍标准差
 # --- 配置区结束 ---
 
 # 全局变量
@@ -313,4 +304,5 @@ def main():
         print("\n❌ 错误：无法获取数据。")
 
 if __name__ == "__main__":
+
     main()

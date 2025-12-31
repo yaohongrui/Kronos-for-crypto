@@ -20,7 +20,7 @@ BTCUSDT15m
 ## 快速开始
 
 1. **安装依赖**
-   安装 Python 3.10+，然后安装依赖项：
+   - 安装 Python 3.10+，然后安装依赖项：
    ```bash
    pip install -r requirements.txt
    ```

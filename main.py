@@ -14,7 +14,7 @@ import time
 class Config:
     """集中管理所有硬编码参数"""
     # 路径配置 (请确保路径正确)
-    LOCAL_MODEL_PATH = "./local_models/Kronos_base"
+    LOCAL_MODEL_PATH = "./local_models/Kronos_Predicter_mini"
     LOCAL_TOKENIZER_PATH = "./local_models/Kronos_Tokenizer_base"
     DATA_DIR = "./data"
     OUTPUT_DIR = "./outputs"
@@ -36,8 +36,8 @@ class Config:
     MAX_CONTEXT = 512
     
     # 策略配置 (基于标准差的倍数)
-    SL_MULTIPLIER = 3.0  # 止损 = 3倍标准差
-    TP_MULTIPLIER = 3.0  # 止盈 = 3倍标准差
+    SL_MULTIPLIER = 1.0  # 止损 = 3倍标准差
+    TP_MULTIPLIER = 1.0  # 止盈 = 3倍标准差
 # --- 配置区结束 ---
 
 # 全局变量
@@ -159,7 +159,7 @@ def run_prediction_and_plot(df, symbol_name, timeframe):
     all_predictions = []
     
     # 保持 T=0.8, top_p=0.9 以获得健康的波动率
-    T_VALUE = 0.8 
+    T_VALUE = 0.8
     TOP_P_VALUE = 0.6
 
     for i in tqdm(range(num_samples), desc="Generating predictions", leave=False):
@@ -304,5 +304,4 @@ def main():
         print("\n❌ 错误：无法获取数据。")
 
 if __name__ == "__main__":
-
     main()

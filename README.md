@@ -28,9 +28,8 @@ BTCUSDT15m
 
 2. **运行主程序**
    ```bash
-   python 2.2.py
+   python main.py
    ```
-   或根据需求选择其他版本。
 
 3. **查看结果**
    - 预测结果和图表会保存在 `outputs/` 目录。
